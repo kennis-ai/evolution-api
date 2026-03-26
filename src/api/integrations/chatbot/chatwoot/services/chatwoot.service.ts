@@ -1548,7 +1548,7 @@ export class ChatwootService {
               key: {
                 path: '$.fromMe',
                 equals: false,
-              },
+              } as any,
               instanceId: instance.instanceId,
             },
           });
@@ -1578,7 +1578,7 @@ export class ChatwootService {
                 key: {
                   path: '$.id',
                   equals: key.id,
-                },
+                } as any,
               },
               data: updateMessage,
             });
@@ -2027,7 +2027,7 @@ export class ChatwootService {
               key: {
                 path: '$.id',
                 equals: quotedId,
-              },
+              } as any,
               chatwootMessageId: {
                 not: null,
               },
@@ -2339,7 +2339,7 @@ export class ChatwootService {
                 key: {
                   path: '$.id',
                   equals: body.key.id,
-                },
+                } as any,
                 instanceId: instance.instanceId,
               },
             });

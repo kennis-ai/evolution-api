@@ -760,7 +760,7 @@ export class BusinessStartupService extends ChannelStartupService {
                 key: {
                   path: '$.id',
                   equals: key.id,
-                },
+                } as any,
               },
             });
 
