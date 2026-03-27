@@ -1057,6 +1057,7 @@ export class ChatwootService {
     messageBody?: any,
     sourceId?: string,
     quotedMsg?: MessageModel,
+    privateMessage?: boolean,
   ) {
     if (sourceId && this.isImportHistoryAvailable()) {
       const messageAlreadySaved = await chatwootImport.getExistingSourceIds([sourceId], conversationId);
@@ -1074,6 +1075,10 @@ export class ChatwootService {
     }
 
     data.append('message_type', messageType);
+
+    if (privateMessage) {
+      data.append('private', 'true');
+    }
 
     data.append('attachments[]', fileStream, { filename: fileName });
 
@@ -1338,6 +1343,8 @@ export class ChatwootService {
       // Chatwoot to Whatsapp
       const messageReceived = body.content
         ? body.content
+            .replaceAll(/\\\n/g, '\n') // Fix #2412: remove backslash before newlines (chatwoot double-escaping)
+            .replace(/\n+$/g, '') // Fix #2415: trim trailing newlines
             .replaceAll(/(?<!\*)\*((?!\s)([^\n*]+?)(?<!\s))\*(?!\*)/g, '_$1_') // Substitui * por _
             .replaceAll(/\*{2}((?!\s)([^\n*]+?)(?<!\s))\*{2}/g, '*$1*') // Substitui ** por *
             .replaceAll(/~{2}((?!\s)([^\n*]+?)(?<!\s))~{2}/g, '~$1~') // Substitui ~~ por ~
@@ -2086,7 +2093,17 @@ export class ChatwootService {
           return;
         }
 
-        const messageType = body.key.fromMe ? 'outgoing' : 'incoming';
+        // Fix #2446: Detect messages sent from the WhatsApp app (not via Chatwoot/API)
+        // When event is 'send.message', it was sent by evolution-api (via chatwoot or API call)
+        // When event is 'messages.upsert' + fromMe=true, it was sent from the linked phone app
+        const sentFromWhatsAppApp = body.key.fromMe && event !== 'send.message';
+        const messageType: 'incoming' | 'outgoing' = sentFromWhatsAppApp ? 'incoming' : body.key.fromMe ? 'outgoing' : 'incoming';
+
+        // Prefix content for messages sent from the phone app so agents can distinguish them
+        const prefixAppMessage = (text: string | undefined): string => {
+          if (!sentFromWhatsAppApp || !text) return text || '';
+          return `📱 *[${i18next.t('cw.message.sentFromApp', { defaultValue: 'Sent from WhatsApp app' })}]*\n${text}`;
+        };
 
         if (isMedia) {
           const downloadBase64 = await waInstance?.getBase64FromMediaMessage({
@@ -2140,11 +2157,12 @@ export class ChatwootService {
               fileStream,
               nameFile,
               messageType,
-              content,
+              prefixAppMessage(content),
               instance,
               body,
               'WAID:' + body.key.id,
               quotedMsg,
+              sentFromWhatsAppApp,
             );
 
             if (!send) {
@@ -2159,11 +2177,12 @@ export class ChatwootService {
               fileStream,
               nameFile,
               messageType,
-              bodyMessage,
+              prefixAppMessage(bodyMessage),
               instance,
               body,
               'WAID:' + body.key.id,
               quotedMsg,
+              sentFromWhatsAppApp,
             );
 
             if (!send) {
@@ -2180,9 +2199,9 @@ export class ChatwootService {
             const send = await this.createMessage(
               instance,
               getConversation,
-              reactionMessage.text,
+              prefixAppMessage(reactionMessage.text),
               messageType,
-              false,
+              sentFromWhatsAppApp,
               [],
               {
                 message: { extendedTextMessage: { contextInfo: { stanzaId: reactionMessage.key.id } } },
@@ -2227,9 +2246,9 @@ export class ChatwootService {
               const send = await this.createMessage(
                 instance,
                 getConversation,
-                content,
+                prefixAppMessage(content),
                 messageType,
-                false,
+                sentFromWhatsAppApp,
                 [],
                 body,
                 'WAID:' + body.key.id,
@@ -2285,10 +2304,12 @@ export class ChatwootService {
             fileStream,
             nameFile,
             messageType,
-            `${bodyMessage}\n\n\n**${title}**\n${description}\n${adsMessage.sourceUrl}`,
+            prefixAppMessage(`${bodyMessage}\n\n\n**${title}**\n${description}\n${adsMessage.sourceUrl}`),
             instance,
             body,
             'WAID:' + body.key.id,
+            undefined,
+            sentFromWhatsAppApp,
           );
 
           if (!send) {
@@ -2318,9 +2339,9 @@ export class ChatwootService {
           const send = await this.createMessage(
             instance,
             getConversation,
-            content,
+            prefixAppMessage(content),
             messageType,
-            false,
+            sentFromWhatsAppApp,
             [],
             body,
             'WAID:' + body.key.id,
@@ -2337,9 +2358,9 @@ export class ChatwootService {
           const send = await this.createMessage(
             instance,
             getConversation,
-            bodyMessage,
+            prefixAppMessage(bodyMessage),
             messageType,
-            false,
+            sentFromWhatsAppApp,
             [],
             body,
             'WAID:' + body.key.id,

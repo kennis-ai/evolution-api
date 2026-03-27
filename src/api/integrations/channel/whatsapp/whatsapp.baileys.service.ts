@@ -2579,6 +2579,35 @@ export class BaileysStartupService extends ChannelStartupService {
       return messageRaw;
     } catch (error) {
       this.logger.error(error);
+
+      // Force state sync when we detect a connection-closed error during send
+      const errorStr = error?.toString?.() || '';
+      const isConnectionError =
+        errorStr.includes('Connection Closed') ||
+        errorStr.includes('connection closed') ||
+        errorStr.includes('ECONNRESET') ||
+        errorStr.includes('socket closed') ||
+        error?.output?.statusCode === 428;
+
+      if (isConnectionError && this.stateConnection.state === 'open') {
+        this.logger.warn(
+          `Detected stale connection state for "${this.instance.name}". Forcing state sync to "close".`,
+        );
+        this.stateConnection = { state: 'close', statusReason: 428 };
+
+        this.prismaRepository.instance
+          .update({
+            where: { id: this.instanceId },
+            data: {
+              connectionStatus: 'close',
+              disconnectionAt: new Date(),
+              disconnectionReasonCode: 428,
+              disconnectionObject: JSON.stringify({ error: 'Connection closed detected during send' }),
+            },
+          })
+          .catch((err) => this.logger.error(`Failed to update connection status in DB: ${err}`));
+      }
+
       throw new BadRequestException(error.toString());
     }
   }
