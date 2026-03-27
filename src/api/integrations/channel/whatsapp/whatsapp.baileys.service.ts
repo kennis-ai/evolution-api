@@ -2308,6 +2308,12 @@ export class BaileysStartupService extends ChannelStartupService {
     options?: Options,
     isIntegration = false,
   ) {
+    if (this.stateConnection.state !== 'open') {
+      throw new BadRequestException(
+        `Instance "${this.instance.name}" is not connected (state: ${this.stateConnection.state}). Cannot send message.`,
+      );
+    }
+
     const isWA = (await this.whatsappNumber({ numbers: [number] }))?.shift();
 
     if (!isWA.exists && !isJidGroup(isWA.jid) && !isWA.jid.includes('@broadcast')) {

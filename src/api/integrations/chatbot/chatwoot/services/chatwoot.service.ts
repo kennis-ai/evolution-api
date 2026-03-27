@@ -1451,6 +1451,39 @@ export class ChatwootService {
           return { message: 'bot' };
         }
 
+        // Layer 2+3: Check connection state before attempting to send
+        // If reconnecting, wait briefly for the connection to come back
+        if (waInstance?.connectionStatus?.state !== 'open') {
+          const currentState = waInstance?.connectionStatus?.state;
+          if (currentState === 'connecting') {
+            this.logger.verbose(`Instance "${instance.instanceName}" is reconnecting. Waiting up to 10s...`);
+            const maxWaitMs = 10_000;
+            const pollIntervalMs = 1_000;
+            let waited = 0;
+            while (waited < maxWaitMs && waInstance?.connectionStatus?.state !== 'open') {
+              await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+              waited += pollIntervalMs;
+            }
+          }
+
+          // After waiting (or if state was 'close'), check again
+          if (waInstance?.connectionStatus?.state !== 'open') {
+            const finalState = waInstance?.connectionStatus?.state;
+            this.logger.warn(
+              `Instance "${instance.instanceName}" is not connected (state: ${finalState}). Cannot send chatwoot message.`,
+            );
+            if (body.conversation?.id) {
+              this.onSendMessageError(
+                instance,
+                body.conversation.id,
+                `Instance is not connected (state: ${finalState}). Message will not be delivered.`,
+              );
+            }
+            return { message: 'bot' };
+          }
+          this.logger.verbose(`Instance "${instance.instanceName}" reconnected successfully. Proceeding with send.`);
+        }
+
         let formatText: string;
         if (senderName === null || senderName === undefined) {
           formatText = messageReceived;
