@@ -55,6 +55,4 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Summary
-        env:
-          DIGEST: ${{ steps.docker_build.outputs.digest }}
-        run: echo "Image digest: $DIGEST"
+        run: echo "Image digest ${{ steps.docker_build.outputs.digest }}"
