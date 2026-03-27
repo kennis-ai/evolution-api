@@ -1546,9 +1546,9 @@ export class ChatwootService {
           const lastMessage = await this.prismaRepository.message.findFirst({
             where: {
               key: {
-                path: ['fromMe'],
+                path: '$.fromMe',
                 equals: false,
-              },
+              } as any,
               instanceId: instance.instanceId,
             },
           });
@@ -1576,9 +1576,9 @@ export class ChatwootService {
               where: {
                 instanceId: instance.instanceId,
                 key: {
-                  path: ['id'],
+                  path: '$.id',
                   equals: key.id,
-                },
+                } as any,
               },
               data: updateMessage,
             });
@@ -2025,9 +2025,9 @@ export class ChatwootService {
           quotedMsg = await this.prismaRepository.message.findFirst({
             where: {
               key: {
-                path: ['id'],
+                path: '$.id',
                 equals: quotedId,
-              },
+              } as any,
               chatwootMessageId: {
                 not: null,
               },
@@ -2337,9 +2337,9 @@ export class ChatwootService {
             await this.prismaRepository.message.deleteMany({
               where: {
                 key: {
-                  path: ['id'],
+                  path: '$.id',
                   equals: body.key.id,
-                },
+                } as any,
                 instanceId: instance.instanceId,
               },
             });

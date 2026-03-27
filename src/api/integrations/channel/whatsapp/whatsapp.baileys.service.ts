@@ -224,6 +224,12 @@ async function getVideoDuration(input: Buffer | string | Readable): Promise<numb
   return Math.round(parseFloat(duration));
 }
 
+function normalizeListType(listMessage?: proto.Message.IListMessage | null): void {
+  if (listMessage?.listType === proto.Message.ListMessage.ListType.PRODUCT_LIST) {
+    listMessage.listType = proto.Message.ListMessage.ListType.SINGLE_SELECT;
+  }
+}
+
 export class BaileysStartupService extends ChannelStartupService {
   private messageProcessor = new BaileysMessageProcessor();
 
@@ -675,19 +681,8 @@ export class BaileysStartupService extends ChannelStartupService {
       userDevicesCache: this.userDevicesCache,
       transactionOpts: { maxCommitRetries: 10, delayBetweenTriesMs: 3000 },
       patchMessageBeforeSending(message) {
-        if (
-          message.deviceSentMessage?.message?.listMessage?.listType === proto.Message.ListMessage.ListType.PRODUCT_LIST
-        ) {
-          message = JSON.parse(JSON.stringify(message));
-
-          message.deviceSentMessage.message.listMessage.listType = proto.Message.ListMessage.ListType.SINGLE_SELECT;
-        }
-
-        if (message.listMessage?.listType == proto.Message.ListMessage.ListType.PRODUCT_LIST) {
-          message = JSON.parse(JSON.stringify(message));
-
-          message.listMessage.listType = proto.Message.ListMessage.ListType.SINGLE_SELECT;
-        }
+        normalizeListType(message.deviceSentMessage?.message?.listMessage);
+        normalizeListType(message.listMessage);
 
         return message;
       },
@@ -1819,7 +1814,7 @@ export class BaileysStartupService extends ChannelStartupService {
       const savedLabel = labelsRepository.find((l) => l.labelId === label.id);
       if (label.deleted && savedLabel) {
         await this.prismaRepository.label.delete({
-          where: { labelId_instanceId: { instanceId: this.instanceId, labelId: label.id } },
+          where: { id: savedLabel.id },
         });
         this.sendDataWebhook(Events.LABELS_EDIT, { ...label, instance: this.instance.name });
         return;
@@ -1835,11 +1830,16 @@ export class BaileysStartupService extends ChannelStartupService {
             predefinedId: label.predefinedId,
             instanceId: this.instanceId,
           };
-          await this.prismaRepository.label.upsert({
-            where: { labelId_instanceId: { instanceId: labelData.instanceId, labelId: labelData.labelId } },
-            update: labelData,
-            create: labelData,
-          });
+          if (savedLabel) {
+            await this.prismaRepository.label.update({
+              where: { id: savedLabel.id },
+              data: labelData,
+            });
+          } else {
+            await this.prismaRepository.label.create({
+              data: labelData,
+            });
+          }
         }
       }
     },
@@ -2051,6 +2051,22 @@ export class BaileysStartupService extends ChannelStartupService {
       return { wuid: jid, profilePictureUrl };
     } catch {
       return { wuid: jid, profilePictureUrl: null };
+    }
+  }
+
+  public async getLid(number: string) {
+    const jid = createJid(number);
+
+    if (!this.client?.signalRepository) {
+      return { wuid: jid, lid: null };
+    }
+
+    try {
+      const lid = await this.client.signalRepository.lidMapping.getLIDForPN(jid);
+      return { wuid: jid, lid: lid || null };
+    } catch (error) {
+      console.error(`Failed to fetch LID for ${jid}:`, error);
+      return { wuid: jid, lid: null };
     }
   }
 
@@ -2372,7 +2388,7 @@ export class BaileysStartupService extends ChannelStartupService {
           throw new NotFoundException('Group not found');
         }
 
-        if (options?.mentionsEveryOne) {
+        if (options?.mentionsEveryOne === true) {
           mentions = group.participants.map((participant) => participant.id);
         } else if (options?.mentioned?.length) {
           mentions = options.mentioned.map((mention) => {
@@ -3677,7 +3693,7 @@ export class BaileysStartupService extends ChannelStartupService {
     try {
       const keys: proto.IMessageKey[] = [];
       data.readMessages.forEach((read) => {
-        if (isJidGroup(read.remoteJid) || isPnUser(read.remoteJid)) {
+        if (!isJidBroadcast(read.remoteJid) && !isJidNewsletter(read.remoteJid)) {
           keys.push({ remoteJid: read.remoteJid, fromMe: read.fromMe, id: read.id });
         }
       });
@@ -3776,7 +3792,7 @@ export class BaileysStartupService extends ChannelStartupService {
         if (messageId) {
           const isLogicalDeleted = configService.get<Database>('DATABASE').DELETE_DATA.LOGICAL_MESSAGE_DELETE;
           let message = await this.prismaRepository.message.findFirst({
-            where: { key: { path: ['id'], equals: messageId } },
+            where: { key: { path: '$.id', equals: messageId } as any },
           });
           if (isLogicalDeleted) {
             if (!message) return response;
@@ -4196,7 +4212,7 @@ export class BaileysStartupService extends ChannelStartupService {
           const messageId = messageSent.message?.protocolMessage?.key?.id;
           if (messageId && this.configService.get<Database>('DATABASE').SAVE_DATA.NEW_MESSAGE) {
             let message = await this.prismaRepository.message.findFirst({
-              where: { key: { path: ['id'], equals: messageId } },
+              where: { key: { path: '$.id', equals: messageId } as any },
             });
             if (!message) throw new NotFoundException('Message not found');
 
@@ -4734,6 +4750,26 @@ export class BaileysStartupService extends ChannelStartupService {
   private async updateMessagesReadedByTimestamp(remoteJid: string, timestamp?: number): Promise<number> {
     if (timestamp === undefined || timestamp === null) return 0;
 
+    const dbProvider = String(this.configService.get<Database>('DATABASE')?.PROVIDER || '').toLowerCase();
+
+    if (dbProvider === 'mysql') {
+      const result = await this.prismaRepository.$executeRaw`
+        UPDATE \`Message\`
+        SET \`status\` = ${status[4]}
+        WHERE \`instanceId\` = ${this.instanceId}
+        AND JSON_UNQUOTE(JSON_EXTRACT(\`key\`, '$.remoteJid')) = ${remoteJid}
+        AND JSON_EXTRACT(\`key\`, '$.fromMe') = false
+        AND \`messageTimestamp\` <= ${timestamp}
+        AND (\`status\` IS NULL OR \`status\` = ${status[3]})
+      `;
+
+      if (result && result > 0) {
+        this.updateChatUnreadMessages(remoteJid);
+      }
+
+      return result || 0;
+    }
+
     // Use raw SQL to avoid JSON path issues
     const result = await this.prismaRepository.$executeRaw`
       UPDATE "Message"
@@ -4757,16 +4793,25 @@ export class BaileysStartupService extends ChannelStartupService {
   }
 
   private async updateChatUnreadMessages(remoteJid: string): Promise<number> {
+    const dbProvider = String(this.configService.get<Database>('DATABASE')?.PROVIDER || '').toLowerCase();
+
     const [chat, unreadMessages] = await Promise.all([
       this.prismaRepository.chat.findFirst({ where: { remoteJid } }),
-      // Use raw SQL to avoid JSON path issues
-      this.prismaRepository.$queryRaw`
-        SELECT COUNT(*)::int as count FROM "Message"
-        WHERE "instanceId" = ${this.instanceId}
-        AND "key"->>'remoteJid' = ${remoteJid}
-        AND ("key"->>'fromMe')::boolean = false
-        AND "status" = ${status[3]}
-      `.then((result: any[]) => result[0]?.count || 0),
+      dbProvider === 'mysql'
+        ? this.prismaRepository.$queryRaw`
+              SELECT COUNT(*) as count FROM \`Message\`
+              WHERE \`instanceId\` = ${this.instanceId}
+              AND JSON_UNQUOTE(JSON_EXTRACT(\`key\`, '$.remoteJid')) = ${remoteJid}
+              AND JSON_EXTRACT(\`key\`, '$.fromMe') = false
+              AND \`status\` = ${status[3]}
+            `.then((result: any[]) => Number(result?.[0]?.count || 0))
+        : this.prismaRepository.$queryRaw`
+              SELECT COUNT(*)::int as count FROM "Message"
+              WHERE "instanceId" = ${this.instanceId}
+              AND "key"->>'remoteJid' = ${remoteJid}
+              AND ("key"->>'fromMe')::boolean = false
+              AND "status" = ${status[3]}
+            `.then((result: any[]) => result[0]?.count || 0),
     ]);
 
     if (chat && chat.unreadMessages !== unreadMessages) {
@@ -5013,7 +5058,7 @@ export class BaileysStartupService extends ChannelStartupService {
     }
   }
 
-  public async fetchMessages(query: Query<Message>) {
+  public async fetchMessages(query: Query<Message>): Promise<any> {
     const keyFilters = query?.where?.key as ExtendedIMessageKey;
 
     const timestampFilter = {};
@@ -5034,13 +5079,13 @@ export class BaileysStartupService extends ChannelStartupService {
         messageType: query?.where?.messageType,
         ...timestampFilter,
         AND: [
-          keyFilters?.id ? { key: { path: ['id'], equals: keyFilters?.id } } : {},
-          keyFilters?.fromMe ? { key: { path: ['fromMe'], equals: keyFilters?.fromMe } } : {},
-          keyFilters?.participant ? { key: { path: ['participant'], equals: keyFilters?.participant } } : {},
+          keyFilters?.id ? { key: { path: '$.id', equals: keyFilters?.id } as any } : {},
+          keyFilters?.fromMe ? { key: { path: '$.fromMe', equals: keyFilters?.fromMe } as any } : {},
+          keyFilters?.participant ? { key: { path: '$.participant', equals: keyFilters?.participant } as any } : {},
           {
             OR: [
-              keyFilters?.remoteJid ? { key: { path: ['remoteJid'], equals: keyFilters?.remoteJid } } : {},
-              keyFilters?.remoteJidAlt ? { key: { path: ['remoteJidAlt'], equals: keyFilters?.remoteJidAlt } } : {},
+              keyFilters?.remoteJid ? { key: { path: '$.remoteJid', equals: keyFilters?.remoteJid } as any } : {},
+              keyFilters?.remoteJidAlt ? { key: { path: '$.remoteJidAlt', equals: keyFilters?.remoteJidAlt } as any } : {},
             ],
           },
         ],
@@ -5063,13 +5108,13 @@ export class BaileysStartupService extends ChannelStartupService {
         messageType: query?.where?.messageType,
         ...timestampFilter,
         AND: [
-          keyFilters?.id ? { key: { path: ['id'], equals: keyFilters?.id } } : {},
-          keyFilters?.fromMe ? { key: { path: ['fromMe'], equals: keyFilters?.fromMe } } : {},
-          keyFilters?.participant ? { key: { path: ['participant'], equals: keyFilters?.participant } } : {},
+          keyFilters?.id ? { key: { path: '$.id', equals: keyFilters?.id } as any } : {},
+          keyFilters?.fromMe ? { key: { path: '$.fromMe', equals: keyFilters?.fromMe } as any } : {},
+          keyFilters?.participant ? { key: { path: '$.participant', equals: keyFilters?.participant } as any } : {},
           {
             OR: [
-              keyFilters?.remoteJid ? { key: { path: ['remoteJid'], equals: keyFilters?.remoteJid } } : {},
-              keyFilters?.remoteJidAlt ? { key: { path: ['remoteJidAlt'], equals: keyFilters?.remoteJidAlt } } : {},
+              keyFilters?.remoteJid ? { key: { path: '$.remoteJid', equals: keyFilters?.remoteJid } as any } : {},
+              keyFilters?.remoteJidAlt ? { key: { path: '$.remoteJidAlt', equals: keyFilters?.remoteJidAlt } as any } : {},
             ],
           },
         ],

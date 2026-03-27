@@ -28,8 +28,8 @@ export class SqsController extends EventController implements EventControllerInt
         accessKeyId: awsConfig.ACCESS_KEY_ID,
         secretAccessKey: awsConfig.SECRET_ACCESS_KEY,
       },
-
       region: awsConfig.REGION,
+      endpoint: awsConfig.ENDPOINT,
     });
 
     this.logger.info('SQS initialized');
@@ -126,7 +126,7 @@ export class SqsController extends EventController implements EventControllerInt
             ? 'singlequeue'
             : `${event.replace('.', '_').toLowerCase()}`;
         const queueName = `${prefixName}_${eventFormatted}.fifo`;
-        const sqsUrl = `https://sqs.${sqsConfig.REGION}.amazonaws.com/${sqsConfig.ACCOUNT_ID}/${queueName}`;
+        const sqsUrl = this.getQueueUrl(sqsConfig, queueName);
 
         const message = {
           ...(extra ?? {}),
@@ -301,5 +301,16 @@ export class SqsController extends EventController implements EventControllerInt
     } catch (err: any) {
       this.logger.error(`Error listing queues for ${prefixName}: ${err.message}`);
     }
+  }
+
+  private getQueueUrl(sqsConfig: Sqs, queueName: string): string {
+    if (sqsConfig.ENDPOINT) {
+      const endpoint = sqsConfig.ENDPOINT.replace(/\/+$/, '');
+      if (endpoint.endsWith(sqsConfig.ACCOUNT_ID)) {
+        return `${endpoint}/${queueName}`;
+      }
+      return `${endpoint}/${sqsConfig.ACCOUNT_ID}/${queueName}`;
+    }
+    return `https://sqs.${sqsConfig.REGION}.amazonaws.com/${sqsConfig.ACCOUNT_ID}/${queueName}`;
   }
 }
