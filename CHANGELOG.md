@@ -1,3 +1,38 @@
+# 2.3.8 (2026-03-28)
+
+### Fixed
+
+* **Connection State Guard**: Prevent message sends when WhatsApp instance is disconnected
+  - Added connection state check in `sendMessageWithTyping` before attempting to send (#2443, #2371)
+  - Added connection check with reconnection wait (up to 10s) in Chatwoot webhook handler
+  - Clear error reporting to Chatwoot when instance is not connected
+
+* **Connection State Sync**: Force state sync when send fails with "Connection Closed"
+  - Detects stale connection state during send and forces DB update to `close` (#2403)
+  - Prevents UI from showing "connected" when Baileys connection is actually dead
+
+* **Chatwoot Newline Escaping**: Fix double-escaped newlines in messages from Chatwoot
+  - Sanitize `\\\n` → `\n` in message text before sending to WhatsApp (#2412)
+  - Trim trailing newlines from messages (#2415)
+
+* **Chatwoot Self-Sent Messages**: Detect messages sent from linked WhatsApp phone app
+  - Messages sent from the phone (not via Chatwoot/API) are now classified as private notes (#2446)
+  - Prefixed with "Sent from WhatsApp app" for agent clarity
+
+* **Webhook Media Dispatch**: Fix webhooks not firing for media messages
+  - Removed early `return` statements in S3 upload block that prevented webhook dispatch (#2396)
+  - Video upload disabled or media extraction failure no longer skips webhook
+
+* **Chatwoot Multi-Attachment**: Fix multi-file message sending failures from Chatwoot
+  - Each attachment now sends independently with its own error handling
+  - Caption only sent with the first attachment to avoid duplication
+  - Added 1.5s delay between sequential attachment sends
+
+### Changed
+
+* **CI/CD**: Remove arm64 platform and QEMU from Docker builds
+  - Only amd64 images are built, significantly reducing CI build times
+
 # 2.3.7 (2025-12-05)
 
 ### Features
