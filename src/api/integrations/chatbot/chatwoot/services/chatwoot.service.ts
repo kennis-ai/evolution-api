@@ -1506,38 +1506,54 @@ export class ChatwootService {
 
         for (const message of body.conversation.messages) {
           if (message.attachments && message.attachments.length > 0) {
+            let isFirstAttachment = true;
+
             for (const attachment of message.attachments) {
-              if (!messageReceived) {
-                formatText = null;
-              }
+              // Only send caption with the first attachment to avoid duplication
+              const caption = !messageReceived ? null : isFirstAttachment ? formatText : null;
 
               const options: Options = {
-                quoted: await this.getQuotedMessage(body, instance),
+                quoted: isFirstAttachment ? await this.getQuotedMessage(body, instance) : undefined,
               };
 
-              const messageSent = await this.sendAttachment(
-                waInstance,
-                chatId,
-                attachment.data_url,
-                formatText,
-                options,
-              );
-              if (!messageSent && body.conversation?.id) {
-                this.onSendMessageError(instance, body.conversation?.id);
+              try {
+                // Add delay between sequential attachments to avoid overwhelming Baileys
+                if (!isFirstAttachment) {
+                  await new Promise((resolve) => setTimeout(resolve, 1500));
+                }
+
+                const messageSent = await this.sendAttachment(
+                  waInstance,
+                  chatId,
+                  attachment.data_url,
+                  caption,
+                  options,
+                );
+                if (!messageSent && body.conversation?.id) {
+                  this.onSendMessageError(instance, body.conversation?.id);
+                }
+
+                await this.updateChatwootMessageId(
+                  {
+                    ...messageSent,
+                  },
+                  {
+                    messageId: body.id,
+                    inboxId: body.inbox?.id,
+                    conversationId: body.conversation?.id,
+                    contactInboxSourceId: body.conversation?.contact_inbox?.source_id,
+                  },
+                  instance,
+                );
+              } catch (error) {
+                this.logger.error(`Failed to send attachment: ${error?.message || error}`);
+                if (body.conversation?.id) {
+                  this.onSendMessageError(instance, body.conversation.id, error);
+                }
+                // Continue sending remaining attachments instead of aborting
               }
 
-              await this.updateChatwootMessageId(
-                {
-                  ...messageSent,
-                },
-                {
-                  messageId: body.id,
-                  inboxId: body.inbox?.id,
-                  conversationId: body.conversation?.id,
-                  contactInboxSourceId: body.conversation?.contact_inbox?.source_id,
-                },
-                instance,
-              );
+              isFirstAttachment = false;
             }
           } else {
             const data: SendTextDto = {
