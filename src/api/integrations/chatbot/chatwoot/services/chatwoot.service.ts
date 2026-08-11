@@ -2115,7 +2115,11 @@ export class ChatwootService {
         // When event is 'send.message', it was sent by evolution-api (via chatwoot or API call)
         // When event is 'messages.upsert' + fromMe=true, it was sent from the linked phone app
         const sentFromWhatsAppApp = body.key.fromMe && event !== 'send.message';
-        const messageType: 'incoming' | 'outgoing' = sentFromWhatsAppApp ? 'incoming' : body.key.fromMe ? 'outgoing' : 'incoming';
+        const messageType: 'incoming' | 'outgoing' = sentFromWhatsAppApp
+          ? 'incoming'
+          : body.key.fromMe
+            ? 'outgoing'
+            : 'incoming';
 
         // Prefix content for messages sent from the phone app so agents can distinguish them
         const prefixAppMessage = (text: string | undefined): string => {

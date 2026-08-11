@@ -2586,9 +2586,7 @@ export class BaileysStartupService extends ChannelStartupService {
         error?.output?.statusCode === 428;
 
       if (isConnectionError && this.stateConnection.state === 'open') {
-        this.logger.warn(
-          `Detected stale connection state for "${this.instance.name}". Forcing state sync to "close".`,
-        );
+        this.logger.warn(`Detected stale connection state for "${this.instance.name}". Forcing state sync to "close".`);
         this.stateConnection = { state: 'close', statusReason: 428 };
 
         this.prismaRepository.instance
