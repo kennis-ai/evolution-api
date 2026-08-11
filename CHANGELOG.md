@@ -1,3 +1,14 @@
+# 2.3.9 (2026-08-11)
+
+### Fixed
+
+* **Chatwoot Newline Escaping (CRLF)**: Complete the #2412 fix for CRLF line endings
+  - The 2.3.8 regex `/\\\n/g` only matched a backslash immediately followed by LF, so messages
+    whose line endings are CRLF kept the literal `\` when delivered to WhatsApp
+  - Now `/\\(\r?\n)/g` handles both LF and CRLF; trailing-newline trim also covers `\r`
+  - Root cause is upstream of Evolution: Chatwoot's ProseMirror editor serializes Shift+Enter as
+    the markdown hard break `\` + newline, which WhatsApp renders literally
+
 # 2.3.8 (2026-03-28)
 
 ### Fixed

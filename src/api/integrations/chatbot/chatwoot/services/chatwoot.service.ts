@@ -1343,8 +1343,10 @@ export class ChatwootService {
       // Chatwoot to Whatsapp
       const messageReceived = body.content
         ? body.content
-            .replaceAll(/\\\n/g, '\n') // Fix #2412: remove backslash before newlines (chatwoot double-escaping)
-            .replace(/\n+$/g, '') // Fix #2415: trim trailing newlines
+            // Fix #2412: Chatwoot's ProseMirror editor serializes Shift+Enter as the markdown
+            // hard break "\\\n". The line ending may be LF or CRLF, so both must be matched.
+            .replace(/\\(\r?\n)/g, '$1')
+            .replace(/[\r\n]+$/g, '') // Fix #2415: trim trailing newlines (CRLF included)
             .replaceAll(/(?<!\*)\*((?!\s)([^\n*]+?)(?<!\s))\*(?!\*)/g, '_$1_') // Substitui * por _
             .replaceAll(/\*{2}((?!\s)([^\n*]+?)(?<!\s))\*{2}/g, '*$1*') // Substitui ** por *
             .replaceAll(/~{2}((?!\s)([^\n*]+?)(?<!\s))~{2}/g, '~$1~') // Substitui ~~ por ~
