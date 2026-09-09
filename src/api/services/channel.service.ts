@@ -627,7 +627,9 @@ export class ChannelStartupService {
           keyFilters?.id ? { key: { path: jsonPath('id'), equals: keyFilters?.id } as any } : {},
           keyFilters?.fromMe ? { key: { path: jsonPath('fromMe'), equals: keyFilters?.fromMe } as any } : {},
           keyFilters?.remoteJid ? { key: { path: jsonPath('remoteJid'), equals: keyFilters?.remoteJid } as any } : {},
-          keyFilters?.participants ? { key: { path: jsonPath('participants'), equals: keyFilters?.participants } as any } : {},
+          keyFilters?.participants
+            ? { key: { path: jsonPath('participants'), equals: keyFilters?.participants } as any }
+            : {},
         ],
       },
     });
@@ -651,7 +653,9 @@ export class ChannelStartupService {
           keyFilters?.id ? { key: { path: jsonPath('id'), equals: keyFilters?.id } as any } : {},
           keyFilters?.fromMe ? { key: { path: jsonPath('fromMe'), equals: keyFilters?.fromMe } as any } : {},
           keyFilters?.remoteJid ? { key: { path: jsonPath('remoteJid'), equals: keyFilters?.remoteJid } as any } : {},
-          keyFilters?.participants ? { key: { path: jsonPath('participants'), equals: keyFilters?.participants } as any } : {},
+          keyFilters?.participants
+            ? { key: { path: jsonPath('participants'), equals: keyFilters?.participants } as any }
+            : {},
         ],
       },
       orderBy: {

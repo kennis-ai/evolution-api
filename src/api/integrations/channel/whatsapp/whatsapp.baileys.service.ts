@@ -84,12 +84,12 @@ import { createJid } from '@utils/createJid';
 import { fetchLatestWaWebVersion } from '@utils/fetchLatestWaWebVersion';
 import { makeProxyAgent, makeProxyAgentUndici } from '@utils/makeProxyAgent';
 import { getOnWhatsappCache, saveOnWhatsappCache } from '@utils/onWhatsappCache';
+import { jsonPath } from '@utils/prismaJsonPath';
 import { status } from '@utils/renderStatus';
 import { sendTelemetry } from '@utils/sendTelemetry';
 import useMultiFileAuthStatePrisma from '@utils/use-multi-file-auth-state-prisma';
 import { AuthStateProvider } from '@utils/use-multi-file-auth-state-provider-files';
 import { useMultiFileAuthStateRedisDb } from '@utils/use-multi-file-auth-state-redis-db';
-import { jsonPath } from '@utils/prismaJsonPath';
 import axios from 'axios';
 import makeWASocket, {
   AnyMessageContent,
@@ -5111,10 +5111,14 @@ export class BaileysStartupService extends ChannelStartupService {
         AND: [
           keyFilters?.id ? { key: { path: jsonPath('id'), equals: keyFilters?.id } as any } : {},
           keyFilters?.fromMe ? { key: { path: jsonPath('fromMe'), equals: keyFilters?.fromMe } as any } : {},
-          keyFilters?.participant ? { key: { path: jsonPath('participant'), equals: keyFilters?.participant } as any } : {},
+          keyFilters?.participant
+            ? { key: { path: jsonPath('participant'), equals: keyFilters?.participant } as any }
+            : {},
           {
             OR: [
-              keyFilters?.remoteJid ? { key: { path: jsonPath('remoteJid'), equals: keyFilters?.remoteJid } as any } : {},
+              keyFilters?.remoteJid
+                ? { key: { path: jsonPath('remoteJid'), equals: keyFilters?.remoteJid } as any }
+                : {},
               keyFilters?.remoteJidAlt
                 ? { key: { path: jsonPath('remoteJidAlt'), equals: keyFilters?.remoteJidAlt } as any }
                 : {},
@@ -5142,10 +5146,14 @@ export class BaileysStartupService extends ChannelStartupService {
         AND: [
           keyFilters?.id ? { key: { path: jsonPath('id'), equals: keyFilters?.id } as any } : {},
           keyFilters?.fromMe ? { key: { path: jsonPath('fromMe'), equals: keyFilters?.fromMe } as any } : {},
-          keyFilters?.participant ? { key: { path: jsonPath('participant'), equals: keyFilters?.participant } as any } : {},
+          keyFilters?.participant
+            ? { key: { path: jsonPath('participant'), equals: keyFilters?.participant } as any }
+            : {},
           {
             OR: [
-              keyFilters?.remoteJid ? { key: { path: jsonPath('remoteJid'), equals: keyFilters?.remoteJid } as any } : {},
+              keyFilters?.remoteJid
+                ? { key: { path: jsonPath('remoteJid'), equals: keyFilters?.remoteJid } as any }
+                : {},
               keyFilters?.remoteJidAlt
                 ? { key: { path: jsonPath('remoteJidAlt'), equals: keyFilters?.remoteJidAlt } as any }
                 : {},

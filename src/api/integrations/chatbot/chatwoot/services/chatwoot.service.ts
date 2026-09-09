@@ -21,8 +21,8 @@ import ChatwootClient, {
 import { request as chatwootRequest } from '@figuro/chatwoot-sdk/dist/core/request';
 import { Chatwoot as ChatwootModel, Contact as ContactModel, Message as MessageModel } from '@prisma/client';
 import i18next from '@utils/i18n';
-import { sendTelemetry } from '@utils/sendTelemetry';
 import { jsonPath } from '@utils/prismaJsonPath';
+import { sendTelemetry } from '@utils/sendTelemetry';
 import axios from 'axios';
 import { WAMessageContent, WAMessageKey } from 'baileys';
 import dayjs from 'dayjs';
