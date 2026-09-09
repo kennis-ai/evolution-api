@@ -89,6 +89,7 @@ import { sendTelemetry } from '@utils/sendTelemetry';
 import useMultiFileAuthStatePrisma from '@utils/use-multi-file-auth-state-prisma';
 import { AuthStateProvider } from '@utils/use-multi-file-auth-state-provider-files';
 import { useMultiFileAuthStateRedisDb } from '@utils/use-multi-file-auth-state-redis-db';
+import { jsonPath } from '@utils/prismaJsonPath';
 import axios from 'axios';
 import makeWASocket, {
   AnyMessageContent,
@@ -3821,7 +3822,7 @@ export class BaileysStartupService extends ChannelStartupService {
         if (messageId) {
           const isLogicalDeleted = configService.get<Database>('DATABASE').DELETE_DATA.LOGICAL_MESSAGE_DELETE;
           let message = await this.prismaRepository.message.findFirst({
-            where: { key: { path: '$.id', equals: messageId } as any },
+            where: { key: { path: jsonPath('id'), equals: messageId } as any },
           });
           if (isLogicalDeleted) {
             if (!message) return response;
@@ -4241,7 +4242,7 @@ export class BaileysStartupService extends ChannelStartupService {
           const messageId = messageSent.message?.protocolMessage?.key?.id;
           if (messageId && this.configService.get<Database>('DATABASE').SAVE_DATA.NEW_MESSAGE) {
             let message = await this.prismaRepository.message.findFirst({
-              where: { key: { path: '$.id', equals: messageId } as any },
+              where: { key: { path: jsonPath('id'), equals: messageId } as any },
             });
             if (!message) throw new NotFoundException('Message not found');
 
@@ -5108,14 +5109,14 @@ export class BaileysStartupService extends ChannelStartupService {
         messageType: query?.where?.messageType,
         ...timestampFilter,
         AND: [
-          keyFilters?.id ? { key: { path: '$.id', equals: keyFilters?.id } as any } : {},
-          keyFilters?.fromMe ? { key: { path: '$.fromMe', equals: keyFilters?.fromMe } as any } : {},
-          keyFilters?.participant ? { key: { path: '$.participant', equals: keyFilters?.participant } as any } : {},
+          keyFilters?.id ? { key: { path: jsonPath('id'), equals: keyFilters?.id } as any } : {},
+          keyFilters?.fromMe ? { key: { path: jsonPath('fromMe'), equals: keyFilters?.fromMe } as any } : {},
+          keyFilters?.participant ? { key: { path: jsonPath('participant'), equals: keyFilters?.participant } as any } : {},
           {
             OR: [
-              keyFilters?.remoteJid ? { key: { path: '$.remoteJid', equals: keyFilters?.remoteJid } as any } : {},
+              keyFilters?.remoteJid ? { key: { path: jsonPath('remoteJid'), equals: keyFilters?.remoteJid } as any } : {},
               keyFilters?.remoteJidAlt
-                ? { key: { path: '$.remoteJidAlt', equals: keyFilters?.remoteJidAlt } as any }
+                ? { key: { path: jsonPath('remoteJidAlt'), equals: keyFilters?.remoteJidAlt } as any }
                 : {},
             ],
           },
@@ -5139,14 +5140,14 @@ export class BaileysStartupService extends ChannelStartupService {
         messageType: query?.where?.messageType,
         ...timestampFilter,
         AND: [
-          keyFilters?.id ? { key: { path: '$.id', equals: keyFilters?.id } as any } : {},
-          keyFilters?.fromMe ? { key: { path: '$.fromMe', equals: keyFilters?.fromMe } as any } : {},
-          keyFilters?.participant ? { key: { path: '$.participant', equals: keyFilters?.participant } as any } : {},
+          keyFilters?.id ? { key: { path: jsonPath('id'), equals: keyFilters?.id } as any } : {},
+          keyFilters?.fromMe ? { key: { path: jsonPath('fromMe'), equals: keyFilters?.fromMe } as any } : {},
+          keyFilters?.participant ? { key: { path: jsonPath('participant'), equals: keyFilters?.participant } as any } : {},
           {
             OR: [
-              keyFilters?.remoteJid ? { key: { path: '$.remoteJid', equals: keyFilters?.remoteJid } as any } : {},
+              keyFilters?.remoteJid ? { key: { path: jsonPath('remoteJid'), equals: keyFilters?.remoteJid } as any } : {},
               keyFilters?.remoteJidAlt
-                ? { key: { path: '$.remoteJidAlt', equals: keyFilters?.remoteJidAlt } as any }
+                ? { key: { path: jsonPath('remoteJidAlt'), equals: keyFilters?.remoteJidAlt } as any }
                 : {},
             ],
           },

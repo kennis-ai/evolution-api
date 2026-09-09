@@ -25,6 +25,7 @@ import { BadRequestException, InternalServerErrorException } from '@exceptions';
 import { createJid } from '@utils/createJid';
 import { status } from '@utils/renderStatus';
 import { sendTelemetry } from '@utils/sendTelemetry';
+import { jsonPath } from '@utils/prismaJsonPath';
 import axios from 'axios';
 import { arrayUnique, isURL } from 'class-validator';
 import EventEmitter2 from 'eventemitter2';
@@ -758,7 +759,7 @@ export class BusinessStartupService extends ChannelStartupService {
               where: {
                 instanceId: this.instanceId,
                 key: {
-                  path: '$.id',
+                  path: jsonPath('id'),
                   equals: key.id,
                 } as any,
               },

@@ -22,6 +22,7 @@ import { request as chatwootRequest } from '@figuro/chatwoot-sdk/dist/core/reque
 import { Chatwoot as ChatwootModel, Contact as ContactModel, Message as MessageModel } from '@prisma/client';
 import i18next from '@utils/i18n';
 import { sendTelemetry } from '@utils/sendTelemetry';
+import { jsonPath } from '@utils/prismaJsonPath';
 import axios from 'axios';
 import { WAMessageContent, WAMessageKey } from 'baileys';
 import dayjs from 'dayjs';
@@ -1604,7 +1605,7 @@ export class ChatwootService {
           const lastMessage = await this.prismaRepository.message.findFirst({
             where: {
               key: {
-                path: '$.fromMe',
+                path: jsonPath('fromMe'),
                 equals: false,
               } as any,
               instanceId: instance.instanceId,
@@ -1634,7 +1635,7 @@ export class ChatwootService {
               where: {
                 instanceId: instance.instanceId,
                 key: {
-                  path: '$.id',
+                  path: jsonPath('id'),
                   equals: key.id,
                 } as any,
               },
@@ -2083,7 +2084,7 @@ export class ChatwootService {
           quotedMsg = await this.prismaRepository.message.findFirst({
             where: {
               key: {
-                path: '$.id',
+                path: jsonPath('id'),
                 equals: quotedId,
               } as any,
               chatwootMessageId: {
@@ -2413,7 +2414,7 @@ export class ChatwootService {
             await this.prismaRepository.message.deleteMany({
               where: {
                 key: {
-                  path: '$.id',
+                  path: jsonPath('id'),
                   equals: body.key.id,
                 } as any,
                 instanceId: instance.instanceId,
