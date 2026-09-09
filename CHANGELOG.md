@@ -1,3 +1,22 @@
+# 2.3.10 (2026-09-09)
+
+### Fixed
+
+* **PostgreSQL JSON path filters (regression from 2.3.x MySQL compatibility work)**: every Prisma
+  `key: { path: ... }` filter used the MySQL JSONPath string form (`'$.fromMe'`) unconditionally.
+  PostgreSQL requires the array form (`['fromMe']`), so all 25 call sites threw
+  `PrismaClientValidationError: Argument 'path': Expected String[], provided String` on Postgres
+  deployments.
+  - Most visible symptom: with `CHATWOOT_MESSAGE_READ=true`, `ChatwootService.receiveWebhook`
+    threw right after the message was already delivered to WhatsApp. The message went out, but
+    the customer's incoming messages were never marked as read (no blue ticks), and the webhook
+    answered Chatwoot with an error.
+  - Commit 40879625 had already gated the *raw SQL* by provider; only the Prisma `path` filters
+    were left MySQL-only. This completes that change instead of reverting it.
+  - New helper `jsonPath()` in `src/utils/prismaJsonPath.ts` returns `['field']` on PostgreSQL and
+    `'$.field'` on MySQL, and is now used by every JSON key filter in `chatwoot.service.ts`,
+    `whatsapp.baileys.service.ts`, `whatsapp.business.service.ts` and `channel.service.ts`.
+
 # 2.3.9 (2026-08-11)
 
 ### Fixed
